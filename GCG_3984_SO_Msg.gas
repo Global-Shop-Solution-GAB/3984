@@ -1,0 +1,126 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+'Coded by: WAW
+'Date: 4/27/2015
+'This is a custom GAB scrip that will, when the user changes sales order on the sales order header screen or changes a purchase order on the
+'purchase order header screen display (using hidden control) sums of the order lines associated with the order that has been selected
+
+'declare local variables
+V.Local.sError.Declare(String)
+V.Local.sSOsum.Declare(String)
+V.Local.sordnum.Declare(String)
+V.Local.ssql.Declare(String)
+V.Local.sponum.Declare(String)
+
+'set the purchase order and sales order numbers to local variables
+V.Local.sordnum.Set(V.Passed.000003)
+V.Local.sponum.Set(V.Passed.000008)
+
+'pad sales orders and purchase order numbers
+F.Intrinsic.String.LPad(V.Local.sordnum,"0",7,V.Local.sordnum)
+F.Intrinsic.String.LPad(V.Local.sponum,"0",7,V.Local.sponum)
+
+'open connection to the database
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+'if the order nuber is changed on the Order Entry System - Open Orders (Sales Order Header) screen
+F.Intrinsic.Control.If(V.caller.Hook,=,11565)
+
+	'set the properties to the hidden label
+	V.Passed.GAB-LBL-1.Set("Sum of All Sales Order Lines")
+	F.Intrinsic.Variable.SetProperty("GAB-LBL-1","PL",608)
+	F.Intrinsic.Variable.SetProperty("GAB-LBL-1","PT",560)
+	F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-LBL-1,"HIDE",0)
+
+	'set the properties to the hidden textbox
+	F.Intrinsic.Variable.SetProperty("GAB-TEXT-1","PL",608)
+	F.Intrinsic.variable.SetProperty("GAB-TEXT-1","PT",577)
+	F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-TEXT-1,"HIDE",0)
+	F.Intrinsic.ui.ChangeCallerProperty(V.Passed.GAB-TEXT-1,"LOCK",1)
+
+	'get the sum of the extension based on what order numbe the user has selected
+	F.Intrinsic.String.Build("select SUM (EXTENSION) from ORDER_LINES where ORDER_NO = '{0}'",V.Local.sordnum,V.local.ssql)
+	F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.ssql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+		V.Local.sSOsum.Set(V.ODBC.con!rst.FieldValTrim!EXPR_1)
+		V.Passed.GAB-TEXT-1.Set(V.Local.sSOsum)
+		F.ODBC.con!rst.Close
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.EndIf
+	
+'if the po is changed on the Purchase ORder Header Maintenance - Update Screen
+F.Intrinsic.Control.If(V.Caller.Hook,=,16855)
+	
+	'set the properties for the hidden label
+	V.Passed.GAB-LBL-1.Set("Sum of All Purchase Order Lines")
+	F.Intrinsic.Variable.SetProperty("GAB-LBL-1","PL",270)
+	F.Intrinsic.Variable.SetProperty("GAB-LBL-1","PT",585)
+	F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-LBL-1,"HIDE",0)
+
+	'set the properties for the hidden textbox
+	F.Intrinsic.Variable.SetProperty("GAB-TEXT-1","PL",270)
+	F.Intrinsic.variable.SetProperty("GAB-TEXT-1","PT",605)
+	F.Intrinsic.UI.ChangeCallerProperty(V.Passed.GAB-TEXT-1,"HIDE",0)
+	F.Intrinsic.ui.ChangeCallerProperty(V.Passed.GAB-TEXT-1,"LOCK",1)
+
+	'get the sum of the extension based on what order numbe the user has selected
+	F.Intrinsic.String.Build("select SUM (EXTENSION) from PO_LINES where PO_TYPE = 'O' and PURCHASE_ORDER = '{0}'",V.Local.sponum,V.local.ssql)
+	F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.ssql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+		V.Local.sSOsum.Set(V.ODBC.con!rst.FieldValTrim!EXPR_1)
+		V.Passed.GAB-TEXT-1.Set(V.Local.sSOsum)
+		F.ODBC.con!rst.Close
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3984_SO_Msg.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+'closes the connection to the database
+F.ODBC.Connection!con.Close
+
+'closes the program
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_3984_SO_Msg.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_PIN_SOMSG$}$WAW$}$4/28/2015
+Program.Sub.Comments.End
+
